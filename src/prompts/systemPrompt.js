@@ -145,7 +145,8 @@ REVIEW GUIDELINES:
 Please provide your review in the following structure:
 
 1. SUMMARY
-An overview of the changes, scope, context and impact.
+An overview of the changes, scope, context and impact.  The summary should include a list of checkmarks or x's for each acceptance criteria from the Jira ticket(s) that are met or not met.
+Use the following format for the checkmarks: ✅ or ❌.
 
 2. CRITICAL ISSUES
 - Identify any blocking issues that must be addressed,
