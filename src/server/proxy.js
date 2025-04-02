@@ -9,11 +9,46 @@ const { generateCodeReview } = require('../services/LLMService');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const JIRA_API_BASE_URL = process.env.REACT_APP_JIRA_API_URL;
 const JIRA_API_TOKEN = process.env.REACT_APP_JIRA_API_TOKEN;
 const JIRA_EMAIL = process.env.REACT_APP_JIRA_EMAIL;
+
+// Helper function to safely check paths
+const isPathSafe = (basePath, targetPath) => {
+  const resolvedPath = path.resolve(targetPath);
+  const resolvedBasePath = path.resolve(basePath);
+  return resolvedPath.startsWith(resolvedBasePath);
+};
+
+// Helper function to read directory recursively
+const readDirRecursive = async (dirPath) => {
+  const items = await fs.readdir(dirPath, { withFileTypes: true });
+  const result = [];
+
+  for (const item of items) {
+    const fullPath = path.join(dirPath, item.name);
+    if (item.isDirectory()) {
+      const children = await readDirRecursive(fullPath);
+      result.push({
+        id: fullPath,
+        name: item.name,
+        isDirectory: true,
+        children
+      });
+    } else {
+      result.push({
+        id: fullPath,
+        name: item.name,
+        isDirectory: false
+      });
+    }
+  }
+
+  return result;
+};
 
 app.get('/api/jira/ticket/:ticketNumber', async (req, res) => {
   try {
@@ -50,40 +85,6 @@ app.get('/api/jira/ticket/:ticketNumber', async (req, res) => {
     });
   }
 });
-
-// Helper function to safely check paths
-const isPathSafe = (basePath, targetPath) => {
-  const resolvedPath = path.resolve(targetPath);
-  const resolvedBasePath = path.resolve(basePath);
-  return resolvedPath.startsWith(resolvedBasePath);
-};
-
-// Helper function to read directory recursively
-const readDirRecursive = async (dirPath) => {
-  const items = await fs.readdir(dirPath, { withFileTypes: true });
-  const result = [];
-
-  for (const item of items) {
-    const fullPath = path.join(dirPath, item.name);
-    if (item.isDirectory()) {
-      const children = await readDirRecursive(fullPath);
-      result.push({
-        id: fullPath,
-        name: item.name,
-        isDirectory: true,
-        children
-      });
-    } else {
-      result.push({
-        id: fullPath,
-        name: item.name,
-        isDirectory: false
-      });
-    }
-  }
-
-  return result;
-};
 
 app.post('/api/local/directory', async (req, res) => {
   try {
@@ -150,11 +151,51 @@ app.post('/api/local/file', async (req, res) => {
   }
 });
 
-// app.post('/api/concatenate-files', async (req, res) => { ... });
+// New endpoint to write files
+app.post('/api/local/write-file', async (req, res) => {
+  try {
+    const { filePath, content } = req.body;
+    
+    if (!filePath || !content) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'File path and content are required' 
+      });
+    }
+
+    const absolutePath = path.resolve(process.cwd(), filePath);
+    
+    // Ensure the directory exists
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    
+    // Write the file
+    await fs.writeFile(absolutePath, content, 'utf8');
+    
+    res.json({ 
+      success: true, 
+      message: 'File written successfully',
+      path: absolutePath
+    });
+  } catch (error) {
+    console.error('Error writing file:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: `Failed to write file: ${error.message}` 
+    });
+  }
+});
 
 app.post('/api/generate-review', async (req, res) => {
   try {
     const { jiraTicket, githubPR, concatenatedFiles, referenceFiles } = req.body;
+    
+    console.log('[DEBUG] Received request body:', {
+      hasJiraTicket: !!jiraTicket,
+      hasGitHubPR: !!githubPR,
+      hasFiles: !!concatenatedFiles,
+      filesLength: concatenatedFiles?.length,
+      referencesLength: referenceFiles?.length
+    });
     
     if (!concatenatedFiles) {
       return res.status(400).json({

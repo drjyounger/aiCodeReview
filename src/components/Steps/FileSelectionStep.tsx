@@ -10,65 +10,139 @@ import {
   CircularProgress,
   Alert,
   TextField,
+  Tabs,
+  Tab,
+  Chip,
+  Divider,
 } from '@mui/material';
 
 import { FileTree } from '../FileTree';
-import { GitHubPR, GitHubFile } from '../../types';
+import { GitHubPR, GitHubFile, PRDetails } from '../../types';
 import { formatConcatenatedFiles } from '../../utils';
+import { getRepoConfigs, saveRepoPath, ReposConfig } from '../../utils/repoConfig';
 
-interface FileTreeProps {
-  rootPath: string;
-  onSelect: (files: string[]) => void;
-  changedFiles: GitHubFile[];
-  onError: (error: Error) => void;
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`repo-tabpanel-${index}`}
+      aria-labelledby={`repo-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
 }
 
 const FileSelectionStep: React.FC = () => {
   const navigate = useNavigate();
-  const [rootPath, setRootPath] = useState<string>('');
-  const [showTree, setShowTree] = useState(false);
+  const [currentTab, setCurrentTab] = useState(0);
+  const [repoConfigs, setRepoConfigs] = useState<ReposConfig>({});
+  const [repoKeys, setRepoKeys] = useState<string[]>([]);
+  
+  const [rootPaths, setRootPaths] = useState<Record<string, string>>({});
+  const [showTrees, setShowTrees] = useState<Record<string, boolean>>({});
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pr, setPR] = useState<GitHubPR | null>(null);
+  const [prs, setPRs] = useState<PRDetails>({});
   const [concatenatedContent, setConcatenatedContent] = useState<string>('');
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const changedFiles = useMemo(() => pr?.changedFiles || [], [pr]);
-
+  // Pre-populate paths from localStorage
   useEffect(() => {
-    // Load PR data from localStorage
+    const configs = getRepoConfigs();
+    setRepoConfigs(configs);
+    
+    const keys = Object.keys(configs);
+    setRepoKeys(keys);
+    
+    // Initialize rootPaths from saved paths in configs
+    const initialPaths = keys.reduce((acc, key) => {
+      acc[key] = configs[key].localPath || '';
+      return acc;
+    }, {} as Record<string, string>);
+    
+    setRootPaths(initialPaths);
+    
+    // Initialize showTrees
+    const initialShowTrees = keys.reduce((acc, key) => {
+      acc[key] = false;
+      return acc;
+    }, {} as Record<string, boolean>);
+    
+    setShowTrees(initialShowTrees);
+    
+    // Load PR data
     try {
       const prData = localStorage.getItem('githubPRs');
       if (prData) {
-        setPR(JSON.parse(prData));
+        setPRs(JSON.parse(prData));
       }
     } catch (err) {
       console.error('Error loading PR data:', err);
     }
   }, []);
 
-  const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRootPath(e.target.value);
-    setShowTree(false); // Hide tree when path changes
+  const currentRepoKey = repoKeys[currentTab] || '';
+
+  const changedFiles = useMemo(() => {
+    if (!currentRepoKey || !prs[currentRepoKey]) return [];
+    return prs[currentRepoKey]?.changedFiles || [];
+  }, [prs, currentRepoKey]);
+
+  const handlePathChange = (repoKey: string, value: string) => {
+    setRootPaths(prev => ({
+      ...prev,
+      [repoKey]: value
+    }));
+    
+    setShowTrees(prev => ({
+      ...prev,
+      [repoKey]: false
+    }));
+    
     setError(null);
   };
 
-  const handleFetchDirectory = () => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setCurrentTab(newValue);
+  };
+
+  const handleFetchDirectory = (repoKey: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      const trimmedPath = rootPath.trim();
-      if (!trimmedPath) {
-        throw new Error('Please enter a valid root directory path');
+      const path = rootPaths[repoKey]?.trim();
+      if (!path) {
+        throw new Error(`Please enter a valid root directory path for ${repoConfigs[repoKey]?.description || repoKey}`);
       }
 
-      console.log('Fetching directory for path:', trimmedPath);
-      setShowTree(true);
+      console.log(`Fetching directory for ${repoKey} path:`, path);
+      
+      // Save the path in config for future use
+      saveRepoPath(repoKey, path);
+      
+      setShowTrees(prev => ({
+        ...prev,
+        [repoKey]: true
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid path');
-      setShowTree(false);
+      setShowTrees(prev => ({
+        ...prev,
+        [repoKey]: false
+      }));
     } finally {
       setLoading(false);
     }
@@ -92,15 +166,20 @@ const FileSelectionStep: React.FC = () => {
     try {
       // Function to get file content
       const getFileContent = async (filePath: string): Promise<string> => {
-        const response = await fetch('/api/local/file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filePath })
-        });
-        
-        const data = await response.json();
-        if (!data.success) throw new Error(data.error);
-        return data.content;
+        try {
+          const response = await fetch('/api/local/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+          });
+          
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error);
+          return data.content;
+        } catch (err) {
+          console.error(`Error fetching content for ${filePath}:`, err);
+          return `// Error loading content for ${filePath}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+        }
       };
 
       const finalContent = await formatConcatenatedFiles(selectedFiles, getFileContent);
@@ -118,7 +197,9 @@ const FileSelectionStep: React.FC = () => {
       }, 100);
     } catch (err) {
       console.error('Error processing files:', err);
-      setError(err instanceof Error ? err.message : 'Failed to process selected files');
+      setError(err instanceof Error 
+        ? `Failed to process selected files: ${err.message}` 
+        : 'Failed to process selected files');
     } finally {
       setLoading(false);
     }
@@ -128,6 +209,8 @@ const FileSelectionStep: React.FC = () => {
     if (concatenatedContent) {
       localStorage.setItem('concatenatedFiles', concatenatedContent);
       navigate('/additional-files');
+    } else {
+      setError('Please concatenate files before proceeding');
     }
   };
 
@@ -148,38 +231,81 @@ const FileSelectionStep: React.FC = () => {
           Files successfully concatenated! Scroll down to view the result.
         </Alert>
       )}
+      
+      <Typography variant="subtitle1" gutterBottom>
+        Select repository workspace:
+      </Typography>
 
-      <Box component="form" sx={{ mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Root Directory Path
-        </Typography>
-        <TextField
-          fullWidth
-          value={rootPath}
-          onChange={handlePathChange}
-          placeholder="/path/to/your/project"
-          sx={{ mb: 2 }}
-        />
-        <Button
-          variant="contained"
-          onClick={handleFetchDirectory}
-          disabled={loading || !rootPath.trim()}
+      {/* Repository tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={currentTab}
+          onChange={handleTabChange}
+          aria-label="repository tabs"
+          variant="scrollable"
+          scrollButtons="auto"
         >
-          {loading ? <CircularProgress size={24} /> : 'Fetch Directory'}
-        </Button>
+          {repoKeys.map((key, index) => (
+            <Tab 
+              key={key} 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  {repoConfigs[key]?.description || key}
+                  {prs[key] && (
+                    <Chip 
+                      label={`PR #${prs[key]?.number}`} 
+                      size="small" 
+                      sx={{ ml: 1 }} 
+                      color="primary"
+                    />
+                  )}
+                </Box>
+              } 
+              id={`repo-tab-${index}`}
+              aria-controls={`repo-tabpanel-${index}`}
+            />
+          ))}
+        </Tabs>
       </Box>
 
-      {showTree && !error && (
-        <Box sx={{ mb: 3, height: '400px', overflow: 'auto' }}>
-          <FileTree
-            rootPath={rootPath}
-            onSelect={handleFileSelect}
-            changedFiles={changedFiles}
-            onError={(error: Error) => setError(error.message)}
-          />
-        </Box>
-      )}
+      {/* Repository content panels */}
+      {repoKeys.map((repoKey, index) => (
+        <TabPanel key={repoKey} value={currentTab} index={index}>
+          <Box component="form" sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Root Directory Path for {repoConfigs[repoKey]?.description || repoKey}
+            </Typography>
+            <TextField
+              fullWidth
+              value={rootPaths[repoKey] || ''}
+              onChange={(e) => handlePathChange(repoKey, e.target.value)}
+              placeholder="/path/to/your/project"
+              sx={{ mb: 2 }}
+            />
+            <Button
+              variant="contained"
+              onClick={() => handleFetchDirectory(repoKey)}
+              disabled={loading || !(rootPaths[repoKey]?.trim())}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Fetch Directory'}
+            </Button>
+          </Box>
 
+          {showTrees[repoKey] && !error && (
+            <Box sx={{ mb: 3, height: '400px', overflow: 'auto' }}>
+              <FileTree
+                rootPath={rootPaths[repoKey] || ''}
+                onSelect={handleFileSelect}
+                changedFiles={repoKey === currentRepoKey ? changedFiles : []}
+                onError={(error: Error) => setError(error.message)}
+              />
+            </Box>
+          )}
+        </TabPanel>
+      ))}
+
+      <Divider sx={{ my: 3 }} />
+      
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <Button
           variant="outlined"
@@ -203,6 +329,15 @@ const FileSelectionStep: React.FC = () => {
           Next
         </Button>
       </Box>
+
+      {/* Display selected files count */}
+      {selectedFiles.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
+          </Typography>
+        </Box>
+      )}
 
       {/* Display concatenated content */}
       {concatenatedContent && (

@@ -28,7 +28,13 @@ export interface GitHubPR {
   labels?: string[];
 }
 
+// Updated to support dynamic repository keys
 export interface PRDetails {
+  [key: string]: GitHubPR | null;
+}
+
+// For backward compatibility
+export interface LegacyPRDetails {
   frontend: GitHubPR | null;
   backend: GitHubPR | null;
 }
@@ -43,7 +49,7 @@ export interface FileNode {
 
 // Review context types
 export interface ReviewContext {
-  jiraTicket: JiraTicket | null;
+  jiraTickets: JiraTicket[];
   githubPR: GitHubPR | null;
   selectedFiles: string[];
   additionalFiles: string[];
