@@ -109,44 +109,64 @@ ${formattedReferenceFiles}
 
 =====END ADDITIONAL CONTEXT FILES=====
 
-REVIEW GUIDELINES:
+REVIEW GUIDELINES FOR PULL REQUESTS:
 1. Code Quality:
-   - Identify any code smells or anti-patterns
-   - Check for proper error handling
-   - Verify proper typing and null checks
-   - Assess code organization and modularity
-   - Review naming conventions and code clarity
+
+Identify any code smells or anti-patterns
+Check for proper error handling
+Verify proper typing and null checks
+Assess code organization and modularity
+Review naming conventions and code clarity
 
 2. Database Considerations:
-   - Verify proper use of database schema
-   - Check for potential SQL injection vulnerabilities
-   - Review query performance and optimization
-   - Ensure proper handling of relationships between tables
+
+Verify proper use of database schema
+Check for potential SQL injection vulnerabilities
+Review query performance and optimization
+Ensure proper handling of relationships between tables
 
 3. Security:
-   - Check for security vulnerabilities
-   - Verify proper authentication/authorization
-   - Review data validation and sanitization
-   - Assess handling of sensitive information
+
+Check for security vulnerabilities
+Verify proper authentication/authorization
+Review data validation and sanitization
+Assess handling of sensitive information
 
 4. Performance:
-   - Identify potential performance bottlenecks
-   - Review API call efficiency
-   - Check for unnecessary re-renders in React components
-   - Assess memory usage and potential leaks
+
+Identify potential performance bottlenecks
+Review API call efficiency
+Check for unnecessary re-renders in React components
+Assess memory usage and potential leaks
 
 5. Business Logic:
-   - Verify implementation successfully meets acceptance criteria
-   - Identify any areas where the code is not meeting acceptance criteria, explain why and what is missing
-   - Check for proper handling of edge cases
-   - Ensure business rules are correctly implemented
-   - Verify proper error messaging for users
 
-6. Legacy Considerations - TempStars is a large codebase with many legacy code and libraries.  So when reviewing, please be mindful of the following:
-   - Check dependencies on legacy code and libraries
-   - Check functions, variables and libraries that are being used
-   - Check for instances where the change might break regression tests
-   - Check for instances where the change might break existing functionality
+Verify implementation successfully meets acceptance criteria
+Identify any areas where the code is not meeting acceptance criteria, explain why and what is missing
+Check for proper handling of edge cases
+Ensure business rules are correctly implemented
+Verify proper error messaging for users
+
+6. Legacy Considerations:
+
+Check dependencies on legacy code and libraries
+Check functions, variables and libraries that are being used
+Check for instances where the change might break regression tests
+Check for instances where the change might break existing functionality
+
+7. Testing & Documentation:
+
+Verify appropriate test coverage for changes
+Check for clear documentation of new functionality
+Ensure complex business logic is adequately explained
+Review updated API documentation if applicable
+
+8. Platform-Specific Considerations:
+
+Verify mobile/responsive compatibility for user interfaces
+Check for accessibility issues in UI changes
+Ensure proper handling of time zones for date/time functionality
+Verify compatibility with all supported browsers/devices
 
 Please provide your review in the following structure:
 
