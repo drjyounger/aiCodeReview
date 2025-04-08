@@ -142,6 +142,12 @@ REVIEW GUIDELINES:
    - Ensure business rules are correctly implemented
    - Verify proper error messaging for users
 
+6. Legacy Considerations - TempStars is a large codebase with many legacy code and libraries.  So when reviewing, please be mindful of the following:
+   - Check dependencies on legacy code and libraries
+   - Check functions, variables and libraries that are being used
+   - Check for instances where the change might break regression tests
+   - Check for instances where the change might break existing functionality
+
 Please provide your review in the following structure:
 
 1. SUMMARY
