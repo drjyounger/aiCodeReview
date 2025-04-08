@@ -51,6 +51,27 @@ export const getPullRequestDetails = async (
       pull_number: prNumber,
     });
 
+    // Fetch PR review comments
+    const { data: reviewComments } = await octokit.pulls.listReviewComments({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+
+    // Fetch PR commits
+    const { data: commits } = await octokit.pulls.listCommits({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+
+    // Fetch PR reviews
+    const { data: reviews } = await octokit.pulls.listReviews({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+
     const pullRequest: GitHubPR = {
       number: prData.number,
       title: prData.title,
@@ -60,12 +81,38 @@ export const getPullRequestDetails = async (
         filename: file.filename,
         status: file.status as 'added' | 'modified' | 'removed',
         patch: file.patch,
+        additions: file.additions,
+        deletions: file.deletions,
+        changes: file.changes,
       })),
       author: prData.user?.login,
       createdAt: prData.created_at,
+      updatedAt: prData.updated_at,
       isMerged: Boolean(prData.merged_at),
+      mergedAt: prData.merged_at,
       mergeable: prData.mergeable ?? undefined,
       labels: prData.labels?.map(label => label.name) || [],
+      commits: commits.map(commit => ({
+        sha: commit.sha,
+        message: commit.commit.message,
+        author: commit.commit.author?.name,
+        date: commit.commit.author?.date,
+      })),
+      reviewComments: reviewComments.map(comment => ({
+        id: comment.id,
+        body: comment.body,
+        path: comment.path,
+        position: comment.position,
+        author: comment.user?.login,
+        createdAt: comment.created_at,
+      })),
+      reviews: reviews.map(review => ({
+        id: review.id,
+        state: review.state,
+        author: review.user?.login,
+        body: review.body,
+        submittedAt: review.submitted_at,
+      })),
     };
 
     return {

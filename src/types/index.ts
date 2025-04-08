@@ -10,6 +10,33 @@ export interface GitHubFile {
   filename: string;
   status: 'added' | 'modified' | 'removed';
   patch: string | undefined;
+  additions?: number;
+  deletions?: number;
+  changes?: number;
+}
+
+export interface GitHubCommit {
+  sha: string;
+  message: string;
+  author?: string;
+  date?: string;
+}
+
+export interface GitHubComment {
+  id: number;
+  body: string;
+  path?: string;
+  position?: number;
+  author?: string;
+  createdAt?: string;
+}
+
+export interface GitHubReview {
+  id: number;
+  state: string;
+  author?: string;
+  body?: string;
+  submittedAt?: string;
 }
 
 export interface GitHubPR {
@@ -23,9 +50,14 @@ export interface GitHubPR {
   changedFiles: GitHubFile[];
   author?: string;
   createdAt?: string;
+  updatedAt?: string;
   isMerged?: boolean;
+  mergedAt?: string;
   mergeable?: boolean;
   labels?: string[];
+  commits?: GitHubCommit[];
+  reviewComments?: GitHubComment[];
+  reviews?: GitHubReview[];
 }
 
 // Updated to support dynamic repository keys

@@ -56,6 +56,62 @@ ${formattedContent}
     preview: formattedReferenceFiles.substring(0, 200) + '...'
   });
   
+  // Format the GitHub PR information in a more readable way
+  const formatPRInfo = (pr) => {
+    if (!pr) return 'No PR information available.';
+    
+    // Format labels
+    const labels = pr.labels && pr.labels.length > 0 
+      ? pr.labels.join(', ')
+      : 'None';
+    
+    // Format changed files
+    const changedFiles = pr.changedFiles && pr.changedFiles.length > 0
+      ? pr.changedFiles.map(file => {
+          const changes = file.additions !== undefined && file.deletions !== undefined
+            ? ` (+${file.additions}/-${file.deletions})`
+            : '';
+          return `- ${file.filename} (${file.status}${changes})`;
+        }).join('\n')
+      : 'No files changed';
+    
+    // Format commit information
+    const commits = pr.commits && pr.commits.length > 0
+      ? pr.commits.map(commit => 
+          `- ${commit.sha.substring(0, 7)}: ${commit.message} (${commit.author || 'Unknown'}, ${commit.date || 'Unknown date'})`
+        ).join('\n')
+      : 'No commit information available';
+    
+    // Format reviews
+    const reviews = pr.reviews && pr.reviews.length > 0
+      ? pr.reviews.map(review => 
+          `- ${review.author || 'Unknown'}: ${review.state} ${review.submittedAt ? `on ${review.submittedAt}` : ''}`
+        ).join('\n')
+      : 'No reviews yet';
+    
+    return `PR #${pr.number}: ${pr.title}
+Description: ${pr.description}
+Author: ${pr.author || 'Unknown'}
+Created: ${pr.createdAt || 'Unknown date'}
+Updated: ${pr.updatedAt || 'Unknown date'}
+Status: ${pr.isMerged ? 'Merged' : (pr.mergeable ? 'Mergeable' : 'Not Mergeable')}
+${pr.isMerged && pr.mergedAt ? `Merged at: ${pr.mergedAt}` : ''}
+Labels: ${labels}
+Changed Files: ${changedFilesCount} files modified
+
+Files changed:
+${changedFiles}
+
+Commits:
+${commits}
+
+Reviews:
+${reviews}
+
+Full PR Data:
+${JSON.stringify(pr || {}, null, 2)}`;
+  };
+  
   return `You are an expert-level code reviewer for the product and engineering team at TempStars, a web and mobile based two-sided marketplace platform that connects dental offices with dental professionals for temping and hiring.
 
 Your job is to review all of the information below and provide a comprehensive, actionable code review.  
@@ -82,20 +138,13 @@ ${JSON.stringify(jiraTicket || {}, null, 2)}
 And here is the pull request information as related to this task:
 
 =====START GITHUB PR=====
-PR #${prNumber}: ${prTitle}
-Description: ${prDescription}
-Changed Files: ${changedFilesCount} files modified
-
-${JSON.stringify(githubPR || {}, null, 2)}
-
+${formatPRInfo(githubPR)}
 =====END GITHUB PR=====
 
-And here are all the files related to this work, you'll see each file in the concatenation is labelled with its file name and path:
+And here are all the files related to this work, you'll see each file in the concatenation is labelled with its file name and path. Note: The TempStars repo is split into 'tempstars-api' and 'tempstars-app' repos.  So you will see files and directories with paths that start with 'tempstars-api' (backend) or 'tempstars-app' (frontend).  
+During development of the actual project, both repos are used.  Here is the code concatenation for the backend and frontend:
 
 =====START CONCATENATED FILES=====
-
-Note: The TempStars repo is split into 'tempstars-api' and 'tempstars-app' repos.  So you will see files and directories with paths that start with 'tempstars-api' (backend) or 'tempstars-app' (frontend).  
-During build of the actual project, both repos are used.
 
 ${concatenatedFiles || ''}
 
